@@ -1,8 +1,6 @@
+import os
 import sys
 import datetime
-
-
-TIMESHEET_PATH = "/Users/aimmx/Documents/Code/utils/punch/timesheet.txt"
 
 
 def print_usage():
@@ -10,7 +8,9 @@ def print_usage():
 
 
 def punch(state):
-    with open(TIMESHEET_PATH, "a") as timesheet:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(script_dir, "timesheet.txt")
+    with open(path, "a") as timesheet:
         timestamp = datetime.datetime.now().strftime("%c")
         timesheet.write("[" + timestamp + "] " + state + "\n")
 
