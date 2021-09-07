@@ -66,7 +66,7 @@ def print_report():
 def new_entry(type):
     with open(locate_timesheet(), "a") as timesheet:
         timestamp = datetime.datetime.now().strftime("%c")
-        timesheet.write(timestamp + type + "\n")
+        timesheet.write(timestamp + " " + type + "\n")
 
 
 if __name__ == "__main__":
