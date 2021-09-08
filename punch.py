@@ -1,6 +1,10 @@
 import os
 import sys
 import datetime
+import math
+
+WORKDAY_START_TIME = datetime.time(6, 0, 0)
+WORKDAY_SECONDS = 8 * 60 * 60
 
 
 def print_usage():
@@ -38,10 +42,17 @@ def load_timesheet(path):
     return entries
 
 
-def print_report():
-    entries = load_timesheet(locate_timesheet())
+def filter_todays_entries(entries):
     now = datetime.datetime.now()
-    entries = [entry for entry in entries if entry[1].date() == now.date()]
+    start = datetime.datetime(now.year, now.month, now.day,
+                              WORKDAY_START_TIME.hour, WORKDAY_START_TIME.minute)
+    if now.time() < WORKDAY_START_TIME:
+        start -= datetime.timedelta(hours=24)
+    end = start + datetime.timedelta(hours=24)
+    return [entry for entry in entries if entry[1] > start and entry[1] < end]
+
+
+def entries_to_intervals(entries):
     intervals = []
     start = None
     for entry in entries:
@@ -53,14 +64,34 @@ def print_report():
                 intervals.append(entry[1] - start)
                 start = None
     if start:
-        intervals.append(now - start)
-    seconds = 0
-    for interval in intervals:
-        seconds += interval.seconds
-    hours = seconds / 3600
-    minutes = (seconds / 60) % 60
-    print("Worked today: {0} hours {1} minutes".format(
-        int(hours), int(minutes)))
+        intervals.append(datetime.datetime.now() - start)
+    return [interval.seconds for interval in intervals]
+
+
+def seconds_to_hours_and_minutes(seconds):
+    hours = math.floor(seconds / 3600)
+    minutes = math.floor((seconds / 60) % 60)
+    return (hours, minutes)
+
+
+def print_report():
+    path = locate_timesheet()
+    all_entries = load_timesheet(path)
+    todays_entries = filter_todays_entries(all_entries)
+    intervals = entries_to_intervals(todays_entries)
+    seconds_worked = sum(intervals, 0)
+    hours, minutes = seconds_to_hours_and_minutes(seconds_worked)
+    seconds_left = WORKDAY_SECONDS - seconds_worked
+    end_of_day = datetime.datetime.now() + datetime.timedelta(seconds=seconds_left)
+
+    print()
+    for entry in todays_entries:
+        print("{0:5s} {1}".format(entry[0], entry[1].strftime("%T")))
+    print()
+    print("Worked today:     {0:.0f} hours {1:.0f} minutes".format(
+        hours, minutes))
+    print("End of work day:  {0}".format(end_of_day.strftime("%Hh%M")))
+    print()
 
 
 def new_entry(type):
