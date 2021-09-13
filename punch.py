@@ -2,6 +2,7 @@ import os
 import sys
 import datetime
 import math
+import subprocess
 
 WORKDAY_START_TIME = datetime.time(6, 0, 0)
 WORKDAY_SECONDS = 8 * 60 * 60
@@ -14,6 +15,11 @@ def print_usage():
 def locate_timesheet():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(script_dir, "timesheet.txt")
+
+
+def open_timesheet_in_editor():
+    editor = os.getenv("EDITOR", "vim")
+    subprocess.call([editor, locate_timesheet()])
 
 
 def load_timesheet(path):
@@ -54,18 +60,21 @@ def filter_todays_entries(entries):
 
 def entries_to_intervals(entries):
     intervals = []
+    starts = []
     start = None
     for entry in entries:
         if entry[0] == "in":
             if not start:
                 start = entry[1]
+                starts.append(start)
         elif entry[0] == "out":
             if start:
                 intervals.append(entry[1] - start)
                 start = None
     if start:
         intervals.append(datetime.datetime.now() - start)
-    return [interval.seconds for interval in intervals]
+    seconds = [interval.seconds for interval in intervals]
+    return seconds, starts
 
 
 def seconds_to_hours_and_minutes(seconds):
@@ -74,11 +83,24 @@ def seconds_to_hours_and_minutes(seconds):
     return (hours, minutes)
 
 
-def print_report():
+def split_by_hour(start, end):
+    blocks = []
+    reference = datetime.datetime(
+        start.year, start.month, start.day, start.hour)
+    while reference < end:
+        remaining = min((end - reference).seconds, 3600)
+        if reference < start:
+            remaining -= (start - reference).seconds
+        blocks.append((reference, remaining))
+        reference += datetime.timedelta(hours=1)
+    return blocks
+
+
+def print_overview():
     path = locate_timesheet()
     all_entries = load_timesheet(path)
     todays_entries = filter_todays_entries(all_entries)
-    intervals = entries_to_intervals(todays_entries)
+    intervals, _ = entries_to_intervals(todays_entries)
     seconds_worked = sum(intervals, 0)
     hours, minutes = seconds_to_hours_and_minutes(seconds_worked)
     seconds_left = WORKDAY_SECONDS - seconds_worked
@@ -94,6 +116,37 @@ def print_report():
     print()
 
 
+def print_stats():
+    path = locate_timesheet()
+    all_entries = load_timesheet(path)
+    intervals, starts = entries_to_intervals(all_entries)
+    daily = [[0] for i in range(7)]
+    hourly = [[0] for i in range(24)]
+    for i in range(len(intervals)):
+        start = starts[i]
+        interval = intervals[i]
+        end = start + datetime.timedelta(seconds=interval)
+        blocks = split_by_hour(start, end)
+        for block in blocks:
+            hour = block[0].hour
+            date = block[0].date()
+            if hour < WORKDAY_START_TIME.hour:
+                date -= datetime.timedelta(hours=24)
+            weekday = date.weekday()
+            daily[weekday].append(block[1] / 3600.0)
+            hourly[hour].append(block[1] / 60.0)
+
+    daily_sum = [sum(hours) for hours in daily]
+    for weekday, hours in enumerate(daily_sum):
+        print("{0} | {1}".format(weekday, hours))
+
+    # hourly_sum = [sum(hours) for hours in hourly]
+    # hourly_max = max(hourly_sum)
+    # hourly_norm = [h / hourly_max for h in hourly_sum]
+    # for hour, norm in enumerate(hourly_norm):
+    #     print("{0:02}:00 - {1:02}:00 | {2}".format(hour, hour + 1, "+" * int(40 * norm)))
+
+
 def new_entry(type):
     with open(locate_timesheet(), "a") as timesheet:
         timestamp = datetime.datetime.now().strftime("%c")
@@ -102,8 +155,12 @@ def new_entry(type):
 
 if __name__ == "__main__":
     if len(sys.argv) == 1:
-        print_report()
-    elif len(sys.argv) > 2 or sys.argv[1] not in ("in", "out"):
-        print_usage()
-    else:
+        print_overview()
+    elif sys.argv[1] in ("in", "out"):
         new_entry(sys.argv[1])
+    elif sys.argv[1] == "edit":
+        open_timesheet_in_editor()
+    # elif sys.argv[1] == "stats":
+        # print_stats()
+    else:
+        print_usage()
