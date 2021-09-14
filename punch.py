@@ -6,6 +6,7 @@ import subprocess
 
 WORKDAY_START_TIME = datetime.time(6, 0, 0)
 WORKDAY_SECONDS = 8 * 60 * 60
+TIMESTAMP_FORMAT = "%Y/%m/%d %Hh%M"
 
 
 def print_usage():
@@ -40,8 +41,9 @@ def load_timesheet(path):
                 continue
 
             try:
-                timestamp = datetime.datetime.strptime(line, "%c")
+                timestamp = datetime.datetime.strptime(line, TIMESTAMP_FORMAT)
             except:
+                print("error")
                 continue
 
             entries.append((type, timestamp))
@@ -108,7 +110,7 @@ def print_overview():
 
     print()
     for entry in todays_entries:
-        print("{0:5s} {1}".format(entry[0], entry[1].strftime("%T")))
+        print("{0:5s} {1}".format(entry[0], entry[1].strftime("%Hh%M")))
     print()
     print("Worked today:     {0:.0f} hours {1:.0f} minutes".format(
         hours, minutes))
@@ -149,7 +151,7 @@ def print_stats():
 
 def new_entry(type):
     with open(locate_timesheet(), "a") as timesheet:
-        timestamp = datetime.datetime.now().strftime("%c")
+        timestamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
         timesheet.write(timestamp + " " + type + "\n")
 
 
