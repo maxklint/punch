@@ -43,7 +43,6 @@ def load_timesheet(path):
             try:
                 timestamp = datetime.datetime.strptime(line, TIMESTAMP_FORMAT)
             except:
-                print("error")
                 continue
 
             entries.append((type, timestamp))
@@ -61,8 +60,8 @@ def filter_todays_entries(entries):
 
 
 def entries_to_intervals(entries):
-    intervals = []
     starts = []
+    ends = []
     start = None
     for entry in entries:
         if entry[0] == "in":
@@ -71,12 +70,18 @@ def entries_to_intervals(entries):
                 starts.append(start)
         elif entry[0] == "out":
             if start:
-                intervals.append(entry[1] - start)
+                ends.append(entry[1])
                 start = None
     if start:
-        intervals.append(datetime.datetime.now() - start)
-    seconds = [interval.seconds for interval in intervals]
-    return seconds, starts
+        ends.append(datetime.datetime.now())
+    return zip(starts, ends)
+
+
+def intervals_to_durations(intervals):
+    durations = []
+    for interval in intervals:
+        durations.append((interval[1] - interval[0]).seconds)
+    return durations
 
 
 def seconds_to_hours_and_minutes(seconds):
@@ -85,25 +90,56 @@ def seconds_to_hours_and_minutes(seconds):
     return (hours, minutes)
 
 
-def split_by_hour(start, end):
-    blocks = []
-    reference = datetime.datetime(
-        start.year, start.month, start.day, start.hour)
-    while reference < end:
-        remaining = min((end - reference).seconds, 3600)
-        if reference < start:
-            remaining -= (start - reference).seconds
-        blocks.append((reference, remaining))
-        reference += datetime.timedelta(hours=1)
-    return blocks
+def slice_interval_by_hour(interval):
+    slices = []
+    start, end = interval
+    ref = datetime.datetime(start.year, start.month, start.day, start.hour)
+    while ref < end:
+        remaining = min((end - ref).seconds, 3600)
+        if ref < start:
+            remaining -= (start - ref).seconds
+        slices.append((ref, ref + datetime.timedelta(seconds=remaining)))
+        ref += datetime.timedelta(hours=1)
+    return slices
+
+
+def slice_intervals_by_hour(intervals):
+    slices = []
+    for interval in intervals:
+        slices.extend(slice_interval_by_hour(interval))
+    return slices
+
+
+def consolidate_slices_by_hour(slices):
+    slicemap = {}
+    for slice in slices:
+        start, end = slice
+        slicemap[start] = slicemap.get(start, 0) + (end - start).seconds
+    consolidated = []
+    for ref, duration in slicemap.items():
+        consolidated.append((ref, ref + datetime.timedelta(seconds=duration)))
+    return consolidated
+
+
+def group_slices_by_hour(slices):
+    hours = [[] for i in range(24)]
+    for slice in slices:
+        start, end = slice
+        hour = start.hour
+        hours[hour].append((end - start).seconds)
+    for hour in hours:
+        if len(hour) == 0:
+            hour.append(0)
+    return hours
 
 
 def print_overview():
     path = locate_timesheet()
     all_entries = load_timesheet(path)
     todays_entries = filter_todays_entries(all_entries)
-    intervals, _ = entries_to_intervals(todays_entries)
-    seconds_worked = sum(intervals, 0)
+    intervals = entries_to_intervals(todays_entries)
+    durations = intervals_to_durations(intervals)
+    seconds_worked = sum(durations, 0)
     hours, minutes = seconds_to_hours_and_minutes(seconds_worked)
     seconds_left = WORKDAY_SECONDS - seconds_worked
     end_of_day = datetime.datetime.now() + datetime.timedelta(seconds=seconds_left)
@@ -118,35 +154,33 @@ def print_overview():
     print()
 
 
+def render_bargraph(values, w, h):
+    canvas = [[" " for i in range(w)] for j in range(h)]
+    max_value = max(values)
+    min_value = min(values)
+    diff = max(1, max_value - min_value)
+    normalized = [(value - min_value) / diff for value in values]
+    bar_w = int(w / len(values))
+    for bar, value in enumerate(normalized):
+        bar_h = int(value * h)
+        for j in range(bar_h):
+            for i in range(max(1, bar_w - 1)):
+                canvas[j][bar * bar_w + i] = u"\u2588"
+    canvas.insert(0, ["{0:<{1}}".format(x, bar_w) for x in range(len(values))])
+    return reversed(canvas)
+
+
 def print_stats():
     path = locate_timesheet()
     all_entries = load_timesheet(path)
-    intervals, starts = entries_to_intervals(all_entries)
-    daily = [[0] for i in range(7)]
-    hourly = [[0] for i in range(24)]
-    for i in range(len(intervals)):
-        start = starts[i]
-        interval = intervals[i]
-        end = start + datetime.timedelta(seconds=interval)
-        blocks = split_by_hour(start, end)
-        for block in blocks:
-            hour = block[0].hour
-            date = block[0].date()
-            if hour < WORKDAY_START_TIME.hour:
-                date -= datetime.timedelta(hours=24)
-            weekday = date.weekday()
-            daily[weekday].append(block[1] / 3600.0)
-            hourly[hour].append(block[1] / 60.0)
-
-    daily_sum = [sum(hours) for hours in daily]
-    for weekday, hours in enumerate(daily_sum):
-        print("{0} | {1}".format(weekday, hours))
-
-    # hourly_sum = [sum(hours) for hours in hourly]
-    # hourly_max = max(hourly_sum)
-    # hourly_norm = [h / hourly_max for h in hourly_sum]
-    # for hour, norm in enumerate(hourly_norm):
-    #     print("{0:02}:00 - {1:02}:00 | {2}".format(hour, hour + 1, "+" * int(40 * norm)))
+    intervals = entries_to_intervals(all_entries)
+    slices = slice_intervals_by_hour(intervals)
+    consolidated = consolidate_slices_by_hour(slices)
+    hourly = group_slices_by_hour(consolidated)
+    hourly_avg = [sum(h) for h in hourly]
+    graph = render_bargraph(hourly_avg, 80, 12)
+    for row in graph:
+        print("".join(row))
 
 
 def new_entry(type):
@@ -162,7 +196,7 @@ if __name__ == "__main__":
         new_entry(sys.argv[1])
     elif sys.argv[1] == "edit":
         open_timesheet_in_editor()
-    # elif sys.argv[1] == "stats":
-        # print_stats()
+    elif sys.argv[1] == "stats":
+        print_stats()
     else:
         print_usage()
