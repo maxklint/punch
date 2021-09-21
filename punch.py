@@ -154,7 +154,7 @@ def print_overview():
     print()
 
 
-def render_bargraph(values, w, h):
+def render_bargraph(values, labels, w, h):
     canvas = [[" " for i in range(w)] for j in range(h)]
     max_value = max(values)
     min_value = min(values)
@@ -166,7 +166,18 @@ def render_bargraph(values, w, h):
         for j in range(bar_h):
             for i in range(max(1, bar_w - 1)):
                 canvas[j][bar * bar_w + i] = u"\u2588"
-    canvas.insert(0, ["{0:<{1}}".format(x, bar_w) for x in range(len(values))])
+    labelline = ["{0:<{1}}".format(label, bar_w) for label in labels]
+    labelline += [" "] * (w - len("".join(labelline)))
+    canvas.insert(0, labelline)
+    canvas.insert(0, ["-" for i in range(w)])
+    canvas.insert(2, ["-" for i in range(w)])
+    canvas.append(["-" for i in range(w)])
+    for i, line in enumerate(canvas):
+        c = "|"
+        if i in (0, len(canvas) - 1):
+            c = "+"
+        line.insert(0, c)
+        line.append(c)
     return reversed(canvas)
 
 
@@ -178,7 +189,10 @@ def print_stats():
     consolidated = consolidate_slices_by_hour(slices)
     hourly = group_slices_by_hour(consolidated)
     hourly_avg = [sum(h) for h in hourly]
-    graph = render_bargraph(hourly_avg, 80, 12)
+    labels = ["{:02d}".format(i) for i in range(24)]
+    rotated_values = hourly_avg[6:] + hourly_avg[:6]
+    rotated_labels = labels[6:] + labels[:6]
+    graph = render_bargraph(rotated_values, rotated_labels, 96, 12)
     for row in graph:
         print("".join(row))
 
