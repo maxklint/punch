@@ -7,10 +7,21 @@ import subprocess
 WORKDAY_START_TIME = datetime.time(6, 0, 0)
 WORKDAY_SECONDS = 8 * 60 * 60
 TIMESTAMP_FORMAT = "%Y/%m/%d %Hh%M"
+USAGE = """
+Usage: punch [<command>]
+
+Commands:
+    in              Add new 'in' entry
+    out             Add new 'out' entry
+    edit            Open timesheet in text editor
+    hourly          Print statistics by hour
+    daily           Print statistics by day
+    help            Print this message
+"""
 
 
 def print_usage():
-    print("USAGE: punch [in | out]")
+    print(USAGE.strip())
 
 
 def locate_timesheet():
@@ -114,7 +125,24 @@ def consolidate_slices_by_hour(slices):
     slicemap = {}
     for slice in slices:
         start, end = slice
-        slicemap[start] = slicemap.get(start, 0) + (end - start).seconds
+        ref = start.replace(minute=0, second=0, microsecond=0)
+        slicemap[ref] = slicemap.get(ref, 0) + (end - start).seconds
+    consolidated = []
+    for ref, duration in slicemap.items():
+        consolidated.append((ref, ref + datetime.timedelta(seconds=duration)))
+    return consolidated
+
+
+def consolidate_slices_by_day(slices):
+    slicemap = {}
+    for slice in slices:
+        start, end = slice
+        ref = start.replace(hour=WORKDAY_START_TIME.hour,
+                            minute=WORKDAY_START_TIME.minute,
+                            second=0, microsecond=0)
+        if start.time() < WORKDAY_START_TIME:
+            ref -= datetime.timedelta(hours=24)
+        slicemap[ref] = slicemap.get(ref, 0) + (end - start).seconds
     consolidated = []
     for ref, duration in slicemap.items():
         consolidated.append((ref, ref + datetime.timedelta(seconds=duration)))
@@ -127,10 +155,19 @@ def group_slices_by_hour(slices):
         start, end = slice
         hour = start.hour
         hours[hour].append((end - start).seconds)
-    for hour in hours:
-        if len(hour) == 0:
-            hour.append(0)
     return hours
+
+
+def group_slices_by_weekday(slices):
+    days = [[] for i in range(7)]
+    for slice in slices:
+        start, end = slice
+        day = start.weekday()
+        time = start.time()
+        if time < WORKDAY_START_TIME:
+            day = 6 if day == 0 else day - 1
+        days[day].append((end - start).seconds)
+    return days
 
 
 def print_overview():
@@ -181,20 +218,47 @@ def render_bargraph(values, labels, w, h):
     return reversed(canvas)
 
 
-def print_stats():
-    path = locate_timesheet()
-    all_entries = load_timesheet(path)
-    intervals = entries_to_intervals(all_entries)
-    slices = slice_intervals_by_hour(intervals)
-    consolidated = consolidate_slices_by_hour(slices)
-    hourly = group_slices_by_hour(consolidated)
-    hourly_avg = [sum(h) for h in hourly]
-    labels = ["{:02d}".format(i) for i in range(24)]
-    rotated_values = hourly_avg[6:] + hourly_avg[:6]
-    rotated_labels = labels[6:] + labels[:6]
-    graph = render_bargraph(rotated_values, rotated_labels, 96, 12)
+def print_bargraph(graph):
     for row in graph:
         print("".join(row))
+
+
+def print_hourly_histogram():
+    path = locate_timesheet()
+    all_entries = load_timesheet(path)
+    if len(all_entries) == 0:
+        print("No data available")
+        return
+    intervals = entries_to_intervals(all_entries)
+    slices = slice_intervals_by_hour(intervals)
+    hourly_history = consolidate_slices_by_hour(slices)
+    daily_history = consolidate_slices_by_day(hourly_history)
+    daily_histogram = group_slices_by_weekday(daily_history)
+    num_days = sum([len(d) for d in daily_histogram])
+    hourly_histogram = group_slices_by_hour(hourly_history)
+    hourly_histogram_norm = [sum(h) / num_days for h in hourly_histogram]
+    labels = ["{:02d}".format(i) for i in range(24)]
+    rotated_values = hourly_histogram_norm[6:] + hourly_histogram_norm[:6]
+    rotated_labels = labels[6:] + labels[:6]
+    graph = render_bargraph(rotated_values, rotated_labels, 96, 12)
+    print_bargraph(graph)
+
+
+def print_daily_histogram():
+    path = locate_timesheet()
+    all_entries = load_timesheet(path)
+    if len(all_entries) == 0:
+        print("No data available")
+        return
+    intervals = entries_to_intervals(all_entries)
+    slices = slice_intervals_by_hour(intervals)
+    daily_history = consolidate_slices_by_day(slices)
+    daily_histogram = group_slices_by_weekday(daily_history)
+    num_days = sum([len(d) for d in daily_histogram])
+    daily_histogram_norm = [sum(d) / num_days for d in daily_histogram]
+    labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    graph = render_bargraph(daily_histogram_norm, labels, 96, 12)
+    print_bargraph(graph)
 
 
 def new_entry(type):
@@ -210,7 +274,9 @@ if __name__ == "__main__":
         new_entry(sys.argv[1])
     elif sys.argv[1] == "edit":
         open_timesheet_in_editor()
-    elif sys.argv[1] == "stats":
-        print_stats()
+    elif sys.argv[1] == "hourly":
+        print_hourly_histogram()
+    elif sys.argv[1] == "daily":
+        print_daily_histogram()
     else:
         print_usage()
