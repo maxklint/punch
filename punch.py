@@ -6,6 +6,7 @@ import subprocess
 
 WORKDAY_START_TIME = datetime.time(6, 0, 0)
 WORKDAY_SECONDS = 8 * 60 * 60
+HISTORY_LENGTH = datetime.timedelta(days=28)
 TIMESTAMP_FORMAT = "%Y/%m/%d %Hh%M"
 USAGE = """
 Usage: punch [<command>]
@@ -16,6 +17,7 @@ Commands:
     edit            Open timesheet in text editor
     hourly          Print statistics by hour
     daily           Print statistics by day
+    history         Print recent history
     help            Print this message
 """
 
@@ -67,7 +69,11 @@ def filter_todays_entries(entries):
     if now.time() < WORKDAY_START_TIME:
         start -= datetime.timedelta(hours=24)
     end = start + datetime.timedelta(hours=24)
-    return [entry for entry in entries if entry[1] > start and entry[1] < end]
+    return filter_entries(entries, start, end)
+
+
+def filter_entries(entries, after, before=datetime.datetime.now()):
+    return [entry for entry in entries if entry[1] > after and entry[1] < before]
 
 
 def entries_to_intervals(entries):
@@ -191,16 +197,16 @@ def print_overview():
     print()
 
 
-def render_bargraph(values, labels, w, h):
+def render_bargraph(values, labels, bounds, w, h):
     canvas = [[" " for i in range(w)] for j in range(h)]
-    max_value = max(values)
-    min_value = min(values)
+    min_value = bounds[0]
+    max_value = bounds[1]
     diff = max(1, max_value - min_value)
     normalized = [(value - min_value) / diff for value in values]
     bar_w = int(w / len(values))
     for bar, value in enumerate(normalized):
         bar_h = int(value * h)
-        for j in range(bar_h):
+        for j in range(min(bar_h, h)):
             for i in range(max(1, bar_w - 1)):
                 canvas[j][bar * bar_w + i] = u"\u2588"
     labelline = ["{0:<{1}}".format(label, bar_w) for label in labels]
@@ -240,7 +246,8 @@ def print_hourly_histogram():
     labels = ["{:02d}".format(i) for i in range(24)]
     rotated_values = hourly_histogram_norm[6:] + hourly_histogram_norm[:6]
     rotated_labels = labels[6:] + labels[:6]
-    graph = render_bargraph(rotated_values, rotated_labels, 96, 12)
+    graph = render_bargraph(rotated_values, rotated_labels,
+                            (0, max(rotated_values)), 96, 12)
     print_bargraph(graph)
 
 
@@ -257,7 +264,25 @@ def print_daily_histogram():
     num_days = sum([len(d) for d in daily_histogram])
     daily_histogram_norm = [sum(d) / num_days for d in daily_histogram]
     labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    graph = render_bargraph(daily_histogram_norm, labels, 96, 12)
+    graph = render_bargraph(daily_histogram_norm, labels,
+                            (0, max(daily_histogram_norm)), 96, 12)
+    print_bargraph(graph)
+
+
+def print_recent_history():
+    path = locate_timesheet()
+    all_entries = load_timesheet(path)
+    if len(all_entries) == 0:
+        print("No data available")
+        return
+    intervals = entries_to_intervals(all_entries)
+    slices = slice_intervals_by_hour(intervals)
+    history = consolidate_slices_by_day(slices)
+    history_start = datetime.datetime.now() - HISTORY_LENGTH
+    recent_history = filter_entries(history, history_start)
+    values = [(t[1] - t[0]).seconds for t in recent_history]
+    labels = ["{:02d}".format(t[0].day) for t in recent_history]
+    graph = render_bargraph(values, labels, (0, WORKDAY_SECONDS), 96, 12)
     print_bargraph(graph)
 
 
@@ -278,5 +303,7 @@ if __name__ == "__main__":
         print_hourly_histogram()
     elif sys.argv[1] == "daily":
         print_daily_histogram()
+    elif sys.argv[1] == "history":
+        print_recent_history()
     else:
         print_usage()
