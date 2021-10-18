@@ -6,8 +6,10 @@ import subprocess
 
 WORKDAY_START_TIME = datetime.time(6, 0, 0)
 WORKDAY_SECONDS = 8 * 60 * 60
-HISTORY_LENGTH = datetime.timedelta(days=28)
+DAILY_HISTORY_LENGTH = datetime.timedelta(days=18)
+WEEKLY_HISTORY_LENGTH = datetime.timedelta(days=70)
 TIMESTAMP_FORMAT = "%Y/%m/%d %Hh%M"
+WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 USAGE = """
 Usage: punch [<command>]
 
@@ -176,6 +178,17 @@ def group_slices_by_weekday(slices):
     return days
 
 
+def group_slices_by_week(slices):
+    weekmap = {}
+    for slice in slices:
+        start, end = slice
+        week = start.isocalendar()[1]
+        value = weekmap.get(week, 0)
+        value += (end - start).seconds
+        weekmap[week] = value
+    return weekmap
+
+
 def print_overview():
     path = locate_timesheet()
     all_entries = load_timesheet(path)
@@ -260,12 +273,15 @@ def print_daily_histogram():
     intervals = entries_to_intervals(all_entries)
     slices = slice_intervals_by_hour(intervals)
     daily_history = consolidate_slices_by_day(slices)
+    if daily_history[-1][0].date() == datetime.datetime.now().date():
+        daily_history.pop()  # discard today's data as incomplete
     daily_histogram = group_slices_by_weekday(daily_history)
-    num_days = sum([len(d) for d in daily_histogram])
-    daily_histogram_norm = [sum(d) / num_days for d in daily_histogram]
-    labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    graph = render_bargraph(daily_histogram_norm, labels,
-                            (0, max(daily_histogram_norm)), 96, 12)
+    daily_histogram_norm = [
+        sum(d) / len(d) if len(d) > 0 else 0 for d in daily_histogram]
+    graph = render_bargraph(daily_histogram_norm,
+                            ["{} ({})".format(WEEKDAYS[i], len(daily_histogram[i]))
+                             for i in range(7)],
+                            (0, WORKDAY_SECONDS), 96, 12)
     print_bargraph(graph)
 
 
@@ -278,11 +294,28 @@ def print_recent_history():
     intervals = entries_to_intervals(all_entries)
     slices = slice_intervals_by_hour(intervals)
     history = consolidate_slices_by_day(slices)
-    history_start = datetime.datetime.now() - HISTORY_LENGTH
+    history_start = datetime.datetime.now() - DAILY_HISTORY_LENGTH
     recent_history = filter_entries(history, history_start)
     values = [(t[1] - t[0]).seconds for t in recent_history]
-    labels = ["{:02d}".format(t[0].day) for t in recent_history]
+    labels = ["{} {:02d}".format(
+        WEEKDAYS[t[0].weekday()][:2], t[0].day) for t in recent_history]
     graph = render_bargraph(values, labels, (0, WORKDAY_SECONDS), 96, 12)
+    print_bargraph(graph)
+
+
+def print_history_by_week():
+    path = locate_timesheet()
+    all_entries = load_timesheet(path)
+    if len(all_entries) == 0:
+        print("No data available")
+        return
+    intervals = entries_to_intervals(all_entries)
+    slices = slice_intervals_by_hour(intervals)
+    history = consolidate_slices_by_day(slices)
+    history_start = datetime.datetime.now() - WEEKLY_HISTORY_LENGTH
+    recent_history = filter_entries(history, history_start)
+    weekly = group_slices_by_week(recent_history)
+    graph = render_bargraph(weekly.values(), ["{}".format(key) for key in weekly.keys()], (0, WORKDAY_SECONDS * 5), 96, 12)
     print_bargraph(graph)
 
 
@@ -303,6 +336,8 @@ if __name__ == "__main__":
         print_hourly_histogram()
     elif sys.argv[1] == "daily":
         print_daily_histogram()
+    elif sys.argv[1] == "weekly":
+        print_history_by_week()
     elif sys.argv[1] == "history":
         print_recent_history()
     else:
