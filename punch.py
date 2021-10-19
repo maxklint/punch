@@ -325,6 +325,17 @@ def new_entry(type):
         timesheet.write(timestamp + " " + type + "\n")
 
 
+def validate_timesheet():
+    path = locate_timesheet()
+    all_entries = load_timesheet(path)
+    expected_type = "in"
+    for (type, timestamp) in all_entries:
+        if type != expected_type:
+            print("Error in entry {}: expected type '{}', got '{}'".format(timestamp, expected_type, type))
+            return
+        expected_type = "out" if expected_type == "in" else "in"
+    print("No errors")
+
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         print_overview()
@@ -332,6 +343,8 @@ if __name__ == "__main__":
         new_entry(sys.argv[1])
     elif sys.argv[1] == "edit":
         open_timesheet_in_editor()
+    elif sys.argv[1] == "check":
+        validate_timesheet()
     elif sys.argv[1] == "hourly":
         print_hourly_histogram()
     elif sys.argv[1] == "daily":
