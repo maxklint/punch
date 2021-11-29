@@ -183,8 +183,10 @@ def group_slices_by_week(slices):
     for slice in slices:
         start, end = slice
         week = start.isocalendar()[1]
-        value = weekmap.get(week, 0)
-        value += (end - start).seconds
+        value = weekmap.get(week, (0, set()))
+        value = (value[0] + (end - start).seconds, value[1])
+        if start.weekday() < 5:
+            value[1].add(start.weekday())
         weekmap[week] = value
     return weekmap
 
@@ -260,7 +262,7 @@ def print_hourly_histogram():
     rotated_values = hourly_histogram_norm[6:] + hourly_histogram_norm[:6]
     rotated_labels = labels[6:] + labels[:6]
     graph = render_bargraph(rotated_values, rotated_labels,
-                            (0, max(rotated_values)), 96, 12)
+                            (0, 3600), 96, 12)
     print_bargraph(graph)
 
 
@@ -315,7 +317,9 @@ def print_history_by_week():
     history_start = datetime.datetime.now() - WEEKLY_HISTORY_LENGTH
     recent_history = filter_entries(history, history_start)
     weekly = group_slices_by_week(recent_history)
-    graph = render_bargraph(weekly.values(), ["{}".format(key) for key in weekly.keys()], (0, WORKDAY_SECONDS * 5), 96, 12)
+    weekly_time = [time for time, _ in weekly.values()]
+    weekly_labels = ["{} ({})".format(key, len(value[1])) for key, value in weekly.items()]
+    graph = render_bargraph(weekly_time, weekly_labels, (0, WORKDAY_SECONDS * 5), 96, 12)
     print_bargraph(graph)
 
 
