@@ -30,7 +30,7 @@ def print_usage():
 
 def locate_timesheet():
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(script_dir, "timesheet.txt")
+    return os.path.join(script_dir, "..", "timesheet.txt")
 
 
 def open_timesheet_in_editor():
@@ -318,8 +318,10 @@ def print_history_by_week():
     recent_history = filter_entries(history, history_start)
     weekly = group_slices_by_week(recent_history)
     weekly_time = [time for time, _ in weekly.values()]
-    weekly_labels = ["{} ({})".format(key, len(value[1])) for key, value in weekly.items()]
-    graph = render_bargraph(weekly_time, weekly_labels, (0, WORKDAY_SECONDS * 5), 96, 12)
+    weekly_labels = ["{} ({})".format(key, len(value[1]))
+                     for key, value in weekly.items()]
+    graph = render_bargraph(weekly_time, weekly_labels,
+                            (0, WORKDAY_SECONDS * 5), 96, 12)
     print_bargraph(graph)
 
 
@@ -335,12 +337,14 @@ def validate_timesheet():
     expected_type = "in"
     for (type, timestamp) in all_entries:
         if type != expected_type:
-            print("Error in entry {}: expected type '{}', got '{}'".format(timestamp, expected_type, type))
+            print("Error in entry {}: expected type '{}', got '{}'".format(
+                timestamp, expected_type, type))
             return
         expected_type = "out" if expected_type == "in" else "in"
     print("No errors")
 
-if __name__ == "__main__":
+
+def main():
     if len(sys.argv) == 1:
         print_overview()
     elif sys.argv[1] in ("in", "out"):
