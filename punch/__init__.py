@@ -314,6 +314,16 @@ def new_entry(type):
         timesheet.write(timestamp + " " + type + "\n")
 
 
+def undo_last_entry():
+    path = locate_timesheet()
+    all_entries = load_timesheet(path)
+    if len(all_entries) > 0:
+        all_entries = all_entries[:-1]
+        with open(path, "w") as timesheet:
+            for entry in all_entries:
+                print("{} {}".format(entry[1].strftime(TIMESTAMP_FORMAT), entry[0]), file=timesheet)
+
+
 def validate_timesheet():
     path = locate_timesheet()
     all_entries = load_timesheet(path)

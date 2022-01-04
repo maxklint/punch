@@ -21,6 +21,10 @@ def entry_out():
     """Add new 'out' entry"""
     new_entry("out")
 
+@cli.command()
+def undo():
+    """Undo last entry"""
+    undo_last_entry()
 
 @cli.command()
 def check():
