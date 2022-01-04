@@ -1,5 +1,4 @@
 import os
-import sys
 import datetime
 import math
 import subprocess
@@ -10,22 +9,6 @@ DAILY_HISTORY_LENGTH = datetime.timedelta(days=18)
 WEEKLY_HISTORY_LENGTH = datetime.timedelta(days=70)
 TIMESTAMP_FORMAT = "%Y/%m/%d %Hh%M"
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-USAGE = """
-Usage: punch [<command>]
-
-Commands:
-    in              Add new 'in' entry
-    out             Add new 'out' entry
-    edit            Open timesheet in text editor
-    hourly          Print statistics by hour
-    daily           Print statistics by day
-    history         Print recent history
-    help            Print this message
-"""
-
-
-def print_usage():
-    print(USAGE.strip())
 
 
 def locate_timesheet():
@@ -342,24 +325,3 @@ def validate_timesheet():
             return
         expected_type = "out" if expected_type == "in" else "in"
     print("No errors")
-
-
-def main():
-    if len(sys.argv) == 1:
-        print_overview()
-    elif sys.argv[1] in ("in", "out"):
-        new_entry(sys.argv[1])
-    elif sys.argv[1] == "edit":
-        open_timesheet_in_editor()
-    elif sys.argv[1] == "check":
-        validate_timesheet()
-    elif sys.argv[1] == "hourly":
-        print_hourly_histogram()
-    elif sys.argv[1] == "daily":
-        print_daily_histogram()
-    elif sys.argv[1] == "weekly":
-        print_history_by_week()
-    elif sys.argv[1] == "history":
-        print_recent_history()
-    else:
-        print_usage()
