@@ -1,62 +1,103 @@
 from . import *
 import click
+import datetime
+
+
+class TimestampType(click.ParamType):
+    name = "timestamp"
+
+    def convert(self, value, param, ctx):
+        if value == "":
+            return datetime.datetime.now()
+
+        date = datetime.date.today()
+        for format in ["%Hh%M", "%H:%M"]:
+            try:
+                time = datetime.datetime.strptime(value, format)
+                timestamp = datetime.datetime(year=date.year, month=date.month, day=date.day,
+                                              hour=time.hour, minute=time.minute, second=time.second)
+                return timestamp
+            except:
+                pass
+
+        self.fail("{} is not a valid timestamp".format(value), param, ctx)
+
+
+timestamp_argument = click.argument("timestamp", type=TimestampType(), default="")
+
+file_option = click.option("-f", "--file", "path", required=True,
+                           envvar="PUNCH_TIMESHEET", type=click.Path(), help="Path to timesheet file")
 
 
 @click.group(invoke_without_command=True)
 @click.pass_context
-def cli(ctx):
+@file_option
+def cli(ctx, path):
     """Simple command-line time tracker."""
     if ctx.invoked_subcommand is None:
-        print_overview()
+        print_overview(path)
 
 
 @cli.command(name="in")
-def entry_in():
+@file_option
+@timestamp_argument
+def entry_in(path, timestamp):
     """Add new 'in' entry"""
-    new_entry("in")
+    new_entry(path, timestamp, "in")
 
 
 @cli.command(name="out")
-def entry_out():
+@file_option
+@timestamp_argument
+def entry_out(path, timestamp):
     """Add new 'out' entry"""
-    new_entry("out")
+    new_entry(path, timestamp, "out")
+
 
 @cli.command()
-def undo():
+@file_option
+def undo(path):
     """Undo last entry"""
-    undo_last_entry()
+    undo_last_entry(path)
+
 
 @cli.command()
-def check():
+@file_option
+def check(path):
     """Validate timesheet"""
-    validate_timesheet()
+    validate_timesheet(path)
 
 
 @cli.command()
-def edit():
+@file_option
+def edit(path):
     """Open timesheet in text editor"""
-    open_timesheet_in_editor()
+    open_timesheet_in_editor(path)
 
 
 @cli.command()
-def hourly():
+@file_option
+def hourly(path):
     """Print statistics by hour"""
-    print_hourly_histogram()
+    print_hourly_histogram(path)
 
 
 @cli.command()
-def daily():
+@file_option
+def daily(path):
     """Print statistics by day"""
-    print_daily_histogram()
+    print_daily_histogram(path)
 
 
 @cli.command()
-def weekly():
+@file_option
+def weekly(path):
     """Print statistics by week"""
-    print_history_by_week()
+    print_history_by_week(path)
 
 
 @cli.command()
-def history():
+@file_option
+def history(path):
     """Print recent history"""
-    print_recent_history()
+    print_recent_history(path)

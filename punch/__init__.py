@@ -11,14 +11,9 @@ TIMESTAMP_FORMAT = "%Y/%m/%d %Hh%M"
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
-def locate_timesheet():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(script_dir, "..", "timesheet.txt")
-
-
-def open_timesheet_in_editor():
+def open_timesheet_in_editor(path):
     editor = os.getenv("EDITOR", "vim")
-    subprocess.call([editor, locate_timesheet()])
+    subprocess.call([editor, path])
 
 
 def load_timesheet(path):
@@ -174,8 +169,7 @@ def group_slices_by_week(slices):
     return weekmap
 
 
-def print_overview():
-    path = locate_timesheet()
+def print_overview(path):
     all_entries = load_timesheet(path)
     todays_entries = filter_todays_entries(all_entries)
     intervals = entries_to_intervals(todays_entries)
@@ -227,8 +221,7 @@ def print_bargraph(graph):
         print("".join(row))
 
 
-def print_hourly_histogram():
-    path = locate_timesheet()
+def print_hourly_histogram(path):
     all_entries = load_timesheet(path)
     if len(all_entries) == 0:
         print("No data available")
@@ -249,8 +242,7 @@ def print_hourly_histogram():
     print_bargraph(graph)
 
 
-def print_daily_histogram():
-    path = locate_timesheet()
+def print_daily_histogram(path):
     all_entries = load_timesheet(path)
     if len(all_entries) == 0:
         print("No data available")
@@ -270,8 +262,7 @@ def print_daily_histogram():
     print_bargraph(graph)
 
 
-def print_recent_history():
-    path = locate_timesheet()
+def print_recent_history(path):
     all_entries = load_timesheet(path)
     if len(all_entries) == 0:
         print("No data available")
@@ -288,8 +279,7 @@ def print_recent_history():
     print_bargraph(graph)
 
 
-def print_history_by_week():
-    path = locate_timesheet()
+def print_history_by_week(path):
     all_entries = load_timesheet(path)
     if len(all_entries) == 0:
         print("No data available")
@@ -308,14 +298,12 @@ def print_history_by_week():
     print_bargraph(graph)
 
 
-def new_entry(type):
-    with open(locate_timesheet(), "a") as timesheet:
-        timestamp = datetime.datetime.now().strftime(TIMESTAMP_FORMAT)
-        timesheet.write(timestamp + " " + type + "\n")
+def new_entry(path, timestamp, type):
+    with open(path, "a") as timesheet:
+        timesheet.write(timestamp.strftime(TIMESTAMP_FORMAT) + " " + type + "\n")
 
 
-def undo_last_entry():
-    path = locate_timesheet()
+def undo_last_entry(path):
     all_entries = load_timesheet(path)
     if len(all_entries) > 0:
         all_entries = all_entries[:-1]
@@ -324,8 +312,7 @@ def undo_last_entry():
                 print("{} {}".format(entry[1].strftime(TIMESTAMP_FORMAT), entry[0]), file=timesheet)
 
 
-def validate_timesheet():
-    path = locate_timesheet()
+def validate_timesheet(path):
     all_entries = load_timesheet(path)
     expected_type = "in"
     for (type, timestamp) in all_entries:
