@@ -14,8 +14,14 @@ class TimestampType(click.ParamType):
         for format in ["%Hh%M", "%H:%M"]:
             try:
                 time = datetime.datetime.strptime(value, format)
-                timestamp = datetime.datetime(year=date.year, month=date.month, day=date.day,
-                                              hour=time.hour, minute=time.minute, second=time.second)
+                timestamp = datetime.datetime(
+                    year=date.year,
+                    month=date.month,
+                    day=date.day,
+                    hour=time.hour,
+                    minute=time.minute,
+                    second=time.second,
+                )
                 return timestamp
             except:
                 pass
@@ -25,8 +31,15 @@ class TimestampType(click.ParamType):
 
 timestamp_argument = click.argument("timestamp", type=TimestampType(), default="")
 
-file_option = click.option("-f", "--file", "path", required=True,
-                           envvar="PUNCH_TIMESHEET", type=click.Path(), help="Path to timesheet file")
+file_option = click.option(
+    "-f",
+    "--file",
+    "path",
+    required=True,
+    envvar="PUNCH_TIMESHEET",
+    type=click.Path(),
+    help="Path to timesheet file",
+)
 
 
 @click.group(invoke_without_command=True)
@@ -101,3 +114,13 @@ def weekly(path):
 def history(path):
     """Print recent history"""
     print_recent_history(path)
+
+
+@cli.command()
+@file_option
+@click.argument("year", type=click.INT)
+def total(path, year):
+    """Print total hours for the given year"""
+    start = datetime.datetime(year, 1, 1)
+    end = datetime.datetime(year + 1, 1, 1)
+    print_total_hours_for_period(path, start, end)

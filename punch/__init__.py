@@ -21,7 +21,7 @@ def load_timesheet(path):
     with open(path, "r") as timesheet:
         lines = timesheet.readlines()
         for line in lines:
-            line = line.replace('\r', '').replace('\n', '')
+            line = line.replace("\r", "").replace("\n", "")
             if line.startswith("#"):
                 continue
             elif line.endswith(" in"):
@@ -44,8 +44,9 @@ def load_timesheet(path):
 
 def filter_todays_entries(entries):
     now = datetime.datetime.now()
-    start = datetime.datetime(now.year, now.month, now.day,
-                              WORKDAY_START_TIME.hour, WORKDAY_START_TIME.minute)
+    start = datetime.datetime(
+        now.year, now.month, now.day, WORKDAY_START_TIME.hour, WORKDAY_START_TIME.minute
+    )
     if now.time() < WORKDAY_START_TIME:
         start -= datetime.timedelta(hours=24)
     end = start + datetime.timedelta(hours=24)
@@ -123,9 +124,12 @@ def consolidate_slices_by_day(slices):
     slicemap = {}
     for slice in slices:
         start, end = slice
-        ref = start.replace(hour=WORKDAY_START_TIME.hour,
-                            minute=WORKDAY_START_TIME.minute,
-                            second=0, microsecond=0)
+        ref = start.replace(
+            hour=WORKDAY_START_TIME.hour,
+            minute=WORKDAY_START_TIME.minute,
+            second=0,
+            microsecond=0,
+        )
         if start.time() < WORKDAY_START_TIME:
             ref -= datetime.timedelta(hours=24)
         slicemap[ref] = slicemap.get(ref, 0) + (end - start).seconds
@@ -183,8 +187,7 @@ def print_overview(path):
     for entry in todays_entries:
         print("{0:5s} {1}".format(entry[0], entry[1].strftime("%Hh%M")))
     print()
-    print("Worked today:     {0:.0f} hours {1:.0f} minutes".format(
-        hours, minutes))
+    print("Worked today:     {0:.0f} hours {1:.0f} minutes".format(hours, minutes))
     print("End of work day:  {0}".format(end_of_day.strftime("%Hh%M")))
     print()
 
@@ -200,7 +203,7 @@ def render_bargraph(values, labels, bounds, w, h):
         bar_h = int(value * h)
         for j in range(min(bar_h, h)):
             for i in range(max(1, bar_w - 1)):
-                canvas[j][bar * bar_w + i] = u"\u2588"
+                canvas[j][bar * bar_w + i] = "\u2588"
     labelline = ["{0:<{1}}".format(label, bar_w) for label in labels]
     labelline += [" "] * (w - len("".join(labelline)))
     canvas.insert(0, labelline)
@@ -237,8 +240,7 @@ def print_hourly_histogram(path):
     labels = ["{:02d}".format(i) for i in range(24)]
     rotated_values = hourly_histogram_norm[6:] + hourly_histogram_norm[:6]
     rotated_labels = labels[6:] + labels[:6]
-    graph = render_bargraph(rotated_values, rotated_labels,
-                            (0, 3600), 96, 12)
+    graph = render_bargraph(rotated_values, rotated_labels, (0, 3600), 96, 12)
     print_bargraph(graph)
 
 
@@ -254,11 +256,15 @@ def print_daily_histogram(path):
         daily_history.pop()  # discard today's data as incomplete
     daily_histogram = group_slices_by_weekday(daily_history)
     daily_histogram_norm = [
-        sum(d) / len(d) if len(d) > 0 else 0 for d in daily_histogram]
-    graph = render_bargraph(daily_histogram_norm,
-                            ["{} ({})".format(WEEKDAYS[i], len(daily_histogram[i]))
-                             for i in range(7)],
-                            (0, WORKDAY_SECONDS), 96, 12)
+        sum(d) / len(d) if len(d) > 0 else 0 for d in daily_histogram
+    ]
+    graph = render_bargraph(
+        daily_histogram_norm,
+        ["{} ({})".format(WEEKDAYS[i], len(daily_histogram[i])) for i in range(7)],
+        (0, WORKDAY_SECONDS),
+        96,
+        12,
+    )
     print_bargraph(graph)
 
 
@@ -273,8 +279,10 @@ def print_recent_history(path):
     history_start = datetime.datetime.now() - DAILY_HISTORY_LENGTH
     recent_history = filter_entries(history, history_start)
     values = [(t[1] - t[0]).seconds for t in recent_history]
-    labels = ["{} {:02d}".format(
-        WEEKDAYS[t[0].weekday()][:2], t[0].day) for t in recent_history]
+    labels = [
+        "{} {:02d}".format(WEEKDAYS[t[0].weekday()][:2], t[0].day)
+        for t in recent_history
+    ]
     graph = render_bargraph(values, labels, (0, WORKDAY_SECONDS), 96, 12)
     print_bargraph(graph)
 
@@ -291,11 +299,26 @@ def print_history_by_week(path):
     recent_history = filter_entries(history, history_start)
     weekly = group_slices_by_week(recent_history)
     weekly_time = [time for time, _ in weekly.values()]
-    weekly_labels = ["{} ({})".format(key, len(value[1]))
-                     for key, value in weekly.items()]
-    graph = render_bargraph(weekly_time, weekly_labels,
-                            (0, WORKDAY_SECONDS * 5), 96, 12)
+    weekly_labels = [
+        "{} ({})".format(key, len(value[1])) for key, value in weekly.items()
+    ]
+    graph = render_bargraph(
+        weekly_time, weekly_labels, (0, WORKDAY_SECONDS * 5), 96, 12
+    )
     print_bargraph(graph)
+
+
+def print_total_hours_for_period(path, history_start, history_end):
+    all_entries = load_timesheet(path)
+    if len(all_entries) == 0:
+        print("No data available")
+        return
+    intervals = entries_to_intervals(all_entries)
+    slices = slice_intervals_by_hour(intervals)
+    history = consolidate_slices_by_day(slices)
+    selected_history = filter_entries(history, history_start, history_end)
+    values = [(t[1] - t[0]).seconds for t in selected_history]
+    print("{}h".format(round(sum(values) / 3600.0)))
 
 
 def new_entry(path, timestamp, type):
@@ -309,16 +332,22 @@ def undo_last_entry(path):
         all_entries = all_entries[:-1]
         with open(path, "w") as timesheet:
             for entry in all_entries:
-                print("{} {}".format(entry[1].strftime(TIMESTAMP_FORMAT), entry[0]), file=timesheet)
+                print(
+                    "{} {}".format(entry[1].strftime(TIMESTAMP_FORMAT), entry[0]),
+                    file=timesheet,
+                )
 
 
 def validate_timesheet(path):
     all_entries = load_timesheet(path)
     expected_type = "in"
-    for (type, timestamp) in all_entries:
+    for type, timestamp in all_entries:
         if type != expected_type:
-            print("Error in entry {}: expected type '{}', got '{}'".format(
-                timestamp, expected_type, type))
+            print(
+                "Error in entry {}: expected type '{}', got '{}'".format(
+                    timestamp, expected_type, type
+                )
+            )
             return
         expected_type = "out" if expected_type == "in" else "in"
     print("No errors")
