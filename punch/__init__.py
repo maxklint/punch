@@ -53,7 +53,9 @@ def filter_todays_entries(entries):
     return filter_entries(entries, start, end)
 
 
-def filter_entries(entries, after, before=datetime.datetime.now()):
+def filter_entries(entries, after, before=None):
+    if before is None:
+        before = datetime.datetime.now()
     return [entry for entry in entries if entry[1] > after and entry[1] < before]
 
 
