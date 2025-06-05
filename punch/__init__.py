@@ -345,6 +345,16 @@ def print_total_hours_for_period(path, history_start, history_end):
 
 
 def new_entry(path, timestamp, type):
+    all_entries = load_timesheet(path)
+    if len(all_entries) > 0:
+        last_type, last_timestamp = all_entries[-1]
+        if last_type == type:
+            print(
+                "Error: last entry was '{}' at {}".format(
+                    last_type, last_timestamp.strftime(TIMESTAMP_FORMAT)
+                )
+            )
+            return
     with open(path, "a") as timesheet:
         timesheet.write(timestamp.strftime(TIMESTAMP_FORMAT) + " " + type + "\n")
 
