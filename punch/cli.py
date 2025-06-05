@@ -1,4 +1,5 @@
 from . import *
+from . import __version__
 import click
 import datetime
 
@@ -43,6 +44,7 @@ file_option = click.option(
 
 
 @click.group(invoke_without_command=True)
+@click.version_option(__version__)
 @click.pass_context
 @file_option
 def cli(ctx, path):
