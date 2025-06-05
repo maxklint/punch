@@ -43,10 +43,11 @@ file_option = click.option(
 )
 
 
-@click.group(invoke_without_command=True)
-@click.version_option(__version__)
-@click.pass_context
+@click.group(invoke_without_command=True, add_help_option=False)
 @file_option
+@click.pass_context
+@click.help_option()
+@click.version_option(__version__)
 def cli(ctx, path):
     """Simple command-line time tracker."""
     if ctx.invoked_subcommand is None:
