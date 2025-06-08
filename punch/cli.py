@@ -121,6 +121,14 @@ def history(path):
 
 @cli.command()
 @file_option
+@click.argument("output", type=click.Path())
+def export(path, output):
+    """Export timesheet to JSON"""
+    export_entries_to_json(path, output)
+
+
+@cli.command()
+@file_option
 @click.argument("year", type=click.INT)
 def total(path, year):
     """Print total hours for the given year"""

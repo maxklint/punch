@@ -2,6 +2,7 @@ import os
 import datetime
 import math
 import subprocess
+import json
 
 
 def _load_version():
@@ -384,3 +385,16 @@ def validate_timesheet(path):
             return
         expected_type = "out" if expected_type == "in" else "in"
     print("No errors")
+
+
+def export_entries_to_json(path, output_path):
+    if os.path.exists(output_path):
+        print(f"Error: {output_path} already exists")
+        return
+    entries = load_timesheet(path)
+    data = [
+        {"timestamp": timestamp.strftime(TIMESTAMP_FORMAT), "type": type}
+        for type, timestamp in entries
+    ]
+    with open(output_path, "w") as outfile:
+        json.dump(data, outfile, indent=2)
