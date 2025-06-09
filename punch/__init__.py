@@ -398,3 +398,36 @@ def export_entries_to_json(path, output_path):
     ]
     with open(output_path, "w") as outfile:
         json.dump(data, outfile, indent=2)
+
+
+def import_entries_from_json(path, input_path):
+    if os.path.exists(path):
+        print(f"Error: {path} already exists")
+        return
+    with open(input_path, "r") as infile:
+        try:
+            data = json.load(infile)
+        except Exception:
+            print(f"Error: could not load {input_path}")
+            return
+
+    entries = []
+    for item in data:
+        if not isinstance(item, dict) or "timestamp" not in item or "type" not in item:
+            print("Error: invalid entry in JSON file")
+            return
+        try:
+            timestamp = datetime.datetime.strptime(item["timestamp"], TIMESTAMP_FORMAT)
+        except Exception:
+            print(f"Error: invalid timestamp '{item.get('timestamp')}'")
+            return
+        if item["type"] not in ("in", "out"):
+            print(f"Error: invalid type '{item['type']}'")
+            return
+        entries.append((item["type"], timestamp))
+
+    with open(path, "w") as timesheet:
+        for type, timestamp in entries:
+            timesheet.write(f"{timestamp.strftime(TIMESTAMP_FORMAT)} {type}\n")
+
+    validate_timesheet(path)
