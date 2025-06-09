@@ -37,6 +37,8 @@ to point the tool at the timesheet file.
 - `punch daily` – histogram of days of the week
 - `punch weekly` – histogram by ISO week
 - `punch total YEAR` – total hours for a given year
+- `punch export FILE` – export timesheet to JSON
+- `punch import FILE` – import timesheet from JSON
 
 Running `punch` with no subcommand prints an overview of today's work.
 Punch assumes an 8‑hour workday starting at 06:00. The `punch hourly`,

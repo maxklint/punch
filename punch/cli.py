@@ -127,6 +127,14 @@ def export(path, output):
     export_entries_to_json(path, output)
 
 
+@cli.command(name="import")
+@file_option
+@click.argument("input", type=click.Path())
+def import_(path, input):
+    """Import timesheet from JSON"""
+    import_entries_from_json(path, input)
+
+
 @cli.command()
 @file_option
 @click.argument("year", type=click.INT)
