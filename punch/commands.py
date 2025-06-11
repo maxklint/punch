@@ -2,41 +2,44 @@ import datetime
 import json
 import os
 import subprocess
+import math
 from . import config, graph, timesheet, utils
 
 
 def print_overview(path):
-    all_entries = timesheet.load_timesheet(path)
-    todays_entries = utils.filter_todays_entries(all_entries)
-    intervals = utils.entries_to_intervals(todays_entries)
-    durations = utils.intervals_to_durations(intervals)
-    seconds_worked = sum(durations, 0)
-    hours, minutes = utils.seconds_to_hours_and_minutes(seconds_worked)
-    seconds_left = config.WORKDAY_SECONDS - seconds_worked
+    sheet = timesheet.Timesheet(path)
+    sessions = sheet.get_sessions_in_range(
+        utils.workday_start_for(datetime.datetime.now(), config.WORKDAY_START_TIME),
+        datetime.timedelta(days=1),
+    )
+
+    total_duration = datetime.timedelta()
+    print()
+    for session in sessions:
+        total_duration += (
+            session.get_end() or datetime.datetime.now()
+        ) - session.get_start()
+        print("in    {0}".format(session.get_start().strftime("%Hh%M")))
+        if end_time := session.get_end():
+            print("out   {0}".format(end_time.strftime("%Hh%M")))
+    print()
+
+    hours = math.floor(total_duration.total_seconds() / 3600)
+    minutes = math.floor((total_duration.total_seconds() / 60) % 60)
+    seconds_left = config.WORKDAY_SECONDS - total_duration.total_seconds()
     end_of_day = datetime.datetime.now() + datetime.timedelta(seconds=seconds_left)
 
-    print()
-    for entry in todays_entries:
-        print("{0:5s} {1}".format(entry[0], entry[1].strftime("%Hh%M")))
-    print()
     print("Worked today:     {0:.0f} hours {1:.0f} minutes".format(hours, minutes))
     print("End of work day:  {0}".format(end_of_day.strftime("%Hh%M")))
     print()
 
 
 def new_entry(path, timestamp, type):
-    all_entries = timesheet.load_timesheet(path)
-    if len(all_entries) > 0:
-        last_type, last_timestamp = all_entries[-1]
-        if last_type == type:
-            print(
-                "Error: last entry was '{}' at {}".format(
-                    last_type, last_timestamp.strftime(config.TIMESTAMP_FORMAT)
-                )
-            )
-            return
-    with open(path, "a") as ofile:
-        ofile.write(timestamp.strftime(config.TIMESTAMP_FORMAT) + " " + type + "\n")
+    sheet = timesheet.Timesheet(path)
+    try:
+        sheet.add_entry(timestamp, type)
+    except timesheet.MismatchedEntryException as e:
+        print(e)
 
 
 def undo_last_entry(path):

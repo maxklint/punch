@@ -1,5 +1,4 @@
 import datetime
-import math
 from . import config
 
 
@@ -61,12 +60,6 @@ def intervals_to_durations(intervals):
     for interval in intervals:
         durations.append((interval[1] - interval[0]).seconds)
     return durations
-
-
-def seconds_to_hours_and_minutes(seconds):
-    hours = math.floor(seconds / 3600)
-    minutes = math.floor((seconds / 60) % 60)
-    return (hours, minutes)
 
 
 def slice_interval_by_hour(interval):
