@@ -37,7 +37,7 @@ def new_entry(path, timestamp, type):
     sheet = timesheet.Timesheet(path)
     try:
         sheet.add_entry(timestamp, type)
-    except timesheet.MismatchedEntryException as e:
+    except Exception as e:
         print(e)
 
 

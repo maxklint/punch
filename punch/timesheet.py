@@ -37,9 +37,25 @@ CREATE TABLE IF NOT EXISTS entries (
         self.conn.commit()
 
     def add_entry(self, timestamp: datetime.datetime, type: str):
-        # FIXME: check type is in ('in', 'out')
-        # FIXME: reject consequtive entries of the same type
+        if type not in ("in", "out"):
+            raise ValueError("Invalid entry type: {}".format(type))
+
         cursor = self.conn.cursor()
+
+        # Check previous entry to avoid consecutive identical types
+        cursor.execute(
+            "SELECT timestamp, type FROM entries WHERE deleted = 0"
+            " ORDER BY timestamp DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        if row is not None and row[1] == type:
+            last_timestamp = datetime.datetime.fromtimestamp(row[0])
+            raise MismatchedEntryException(
+                "Error: last entry was '{}' at {}".format(
+                    row[1], last_timestamp.strftime(config.TIMESTAMP_FORMAT)
+                )
+            )
+
         cursor.execute(
             "INSERT INTO entries (timestamp, type) VALUES (?, ?)",
             (int(timestamp.timestamp()), type),
