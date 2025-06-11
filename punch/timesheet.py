@@ -1,6 +1,6 @@
 import datetime
 import sqlite3
-from . import config
+from . import config, utils
 
 
 class Session:
@@ -61,11 +61,38 @@ CREATE TABLE IF NOT EXISTS entries (
             (int(timestamp.timestamp()), int((timestamp + delta).timestamp())),
         )
 
-        # FIXME: convert to sessions
-        results = cursor.fetchall()
-        for row in results:
-            print(row)
-        return []
+        # FIXME: extract this to a function and test
+        sessions = []
+        prev_entry_timestamp = None
+        prev_entry_type = None
+        for row in cursor.fetchall():
+            entry_timestamp = datetime.datetime.fromtimestamp(row[1])
+            entry_type = row[2]
+            if prev_entry_type:
+                if entry_type == prev_entry_type:
+                    raise MismatchedEntryException(
+                        "Error: last entry was '{}' at {}".format(
+                            prev_entry_type,
+                            prev_entry_timestamp.strftime(config.TIMESTAMP_FORMAT),
+                        )
+                    )
+                if entry_type == "out":
+                    sessions.append(Session(prev_entry_timestamp, entry_timestamp))
+            else:
+                if entry_type == "out":
+                    sessions.append(
+                        Session(
+                            utils.workday_start_for(
+                                entry_timestamp, config.WORKDAY_START_TIME
+                            ),
+                            entry_timestamp,
+                        )
+                    )
+            prev_entry_type = entry_type
+            prev_entry_timestamp = entry_timestamp
+        if prev_entry_type == "in":
+            sessions.append(Session(prev_entry_timestamp, None))
+        return sessions
 
 
 def load_timesheet(path):
