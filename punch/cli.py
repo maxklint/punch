@@ -1,5 +1,4 @@
-from . import *
-from . import __version__
+from . import __version__, commands
 import click
 import datetime
 
@@ -24,7 +23,7 @@ class TimestampType(click.ParamType):
                     second=time.second,
                 )
                 return timestamp
-            except:
+            except Exception:
                 pass
 
         self.fail("{} is not a valid timestamp".format(value), param, ctx)
@@ -51,7 +50,7 @@ file_option = click.option(
 def cli(ctx, path):
     """Simple command-line time tracker."""
     if ctx.invoked_subcommand is None:
-        print_overview(path)
+        commands.print_overview(path)
 
 
 @cli.command(name="in")
@@ -59,7 +58,7 @@ def cli(ctx, path):
 @timestamp_argument
 def entry_in(path, timestamp):
     """Add new 'in' entry"""
-    new_entry(path, timestamp, "in")
+    commands.new_entry(path, timestamp, "in")
 
 
 @cli.command(name="out")
@@ -67,56 +66,56 @@ def entry_in(path, timestamp):
 @timestamp_argument
 def entry_out(path, timestamp):
     """Add new 'out' entry"""
-    new_entry(path, timestamp, "out")
+    commands.new_entry(path, timestamp, "out")
 
 
 @cli.command()
 @file_option
 def undo(path):
     """Undo last entry"""
-    undo_last_entry(path)
+    commands.undo_last_entry(path)
 
 
 @cli.command()
 @file_option
 def check(path):
     """Validate timesheet"""
-    validate_timesheet(path)
+    commands.validate_timesheet(path)
 
 
 @cli.command()
 @file_option
 def edit(path):
     """Open timesheet in text editor"""
-    open_timesheet_in_editor(path)
+    commands.open_timesheet_in_editor(path)
 
 
 @cli.command()
 @file_option
 def hourly(path):
     """Print statistics by hour"""
-    print_hourly_histogram(path)
+    commands.print_hourly_histogram(path)
 
 
 @cli.command()
 @file_option
 def daily(path):
     """Print statistics by day"""
-    print_daily_histogram(path)
+    commands.print_daily_histogram(path)
 
 
 @cli.command()
 @file_option
 def weekly(path):
     """Print statistics by week"""
-    print_history_by_week(path)
+    commands.print_history_by_week(path)
 
 
 @cli.command()
 @file_option
 def history(path):
     """Print recent history"""
-    print_recent_history(path)
+    commands.print_recent_history(path)
 
 
 @cli.command()
@@ -124,7 +123,7 @@ def history(path):
 @click.argument("output", type=click.Path())
 def export(path, output):
     """Export timesheet to JSON"""
-    export_entries_to_json(path, output)
+    commands.export_entries_to_json(path, output)
 
 
 @cli.command(name="import")
@@ -132,7 +131,7 @@ def export(path, output):
 @click.argument("input", type=click.Path())
 def import_(path, input):
     """Import timesheet from JSON"""
-    import_entries_from_json(path, input)
+    commands.import_entries_from_json(path, input)
 
 
 @cli.command()
@@ -142,4 +141,4 @@ def total(path, year):
     """Print total hours for the given year"""
     start = datetime.datetime(year, 1, 1)
     end = datetime.datetime(year + 1, 1, 1)
-    print_total_hours_for_period(path, start, end)
+    commands.print_total_hours_for_period(path, start, end)
