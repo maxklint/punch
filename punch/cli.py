@@ -85,13 +85,6 @@ def check(path):
 
 @cli.command()
 @file_option
-def edit(path):
-    """Open timesheet in text editor"""
-    commands.open_timesheet_in_editor(path)
-
-
-@cli.command()
-@file_option
 def hourly(path):
     """Print statistics by hour"""
     commands.print_hourly_histogram(path)

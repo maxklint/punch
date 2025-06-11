@@ -31,7 +31,6 @@ to point the tool at the timesheet file.
 - `punch in [TIME]` – add an *in* entry (default: now)
 - `punch out [TIME]` – add an *out* entry
 - `punch undo` – remove the last entry
-- `punch edit` – open the timesheet in your editor
 - `punch history` – show recent history
 - `punch hourly` – histogram of hours of the day
 - `punch daily` – histogram of days of the week

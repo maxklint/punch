@@ -1,7 +1,6 @@
 import datetime
 import json
 import os
-import subprocess
 import math
 from . import config, graph, timesheet, utils
 
@@ -69,11 +68,6 @@ def validate_timesheet(path):
             return
         expected_type = "out" if expected_type == "in" else "in"
     print("No errors")
-
-
-def open_timesheet_in_editor(path):
-    editor = os.getenv("EDITOR", "vim")
-    subprocess.call([editor, path])
 
 
 def print_hourly_histogram(path):
