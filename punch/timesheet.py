@@ -62,6 +62,10 @@ CREATE TABLE IF NOT EXISTS entries (
         )
         self.conn.commit()
 
+    def delete_last_entry(self):
+        # FIXME: implement
+        raise NotImplementedError
+
     def get_sessions_in_range(
         self, timestamp: datetime.datetime, delta: datetime.timedelta
     ) -> list[Session]:

@@ -42,17 +42,8 @@ def new_entry(path, timestamp, type):
 
 
 def undo_last_entry(path):
-    all_entries = timesheet.load_timesheet(path)
-    if len(all_entries) > 0:
-        all_entries = all_entries[:-1]
-        with open(path, "w") as ofile:
-            for entry in all_entries:
-                print(
-                    "{} {}".format(
-                        entry[1].strftime(config.TIMESTAMP_FORMAT), entry[0]
-                    ),
-                    file=ofile,
-                )
+    sheet = timesheet.Timesheet(path)
+    sheet.delete_last_entry()
 
 
 def validate_timesheet(path):
