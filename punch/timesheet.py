@@ -63,8 +63,15 @@ CREATE TABLE IF NOT EXISTS entries (
         self.conn.commit()
 
     def delete_last_entry(self):
-        # FIXME: implement
-        raise NotImplementedError
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT id FROM entries WHERE deleted = 0 ORDER BY timestamp DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return
+        cursor.execute("UPDATE entries SET deleted = 1 WHERE id = ?", (row[0],))
+        self.conn.commit()
 
     def get_sessions_in_range(
         self, timestamp: datetime.datetime, delta: datetime.timedelta
