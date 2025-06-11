@@ -3,6 +3,20 @@ import math
 from . import config
 
 
+def workday_start_for(
+    timestamp: datetime.datetime, workday_start: datetime.time
+) -> datetime.datetime:
+    """
+    Given a datetime `timestamp`, return the datetime corresponding to the start of the
+    workday it belongs to.
+    """
+    if timestamp.time() < workday_start:
+        return datetime.datetime.combine(
+            timestamp.date(), workday_start
+        ) - datetime.timedelta(days=1)
+    return datetime.datetime.combine(timestamp.date(), workday_start)
+
+
 def filter_todays_entries(entries):
     now = datetime.datetime.now()
     start = datetime.datetime(
