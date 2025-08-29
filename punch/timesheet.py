@@ -14,6 +14,7 @@ def load_timesheet(path):
     with open(path, "r") as timesheet:
         lines = timesheet.readlines()
         prev_ts = None
+        prev_type = None
         for idx, raw in enumerate(lines, start=1):
             line = raw.replace("\r", "").replace("\n", "")
 
@@ -44,6 +45,12 @@ def load_timesheet(path):
                     f"Out-of-order entry at line {idx}: {timestamp.isoformat()} is before {prev_ts.isoformat()}"
                 )
 
+            if prev_type is not None and type == prev_type:
+                raise ValueError(
+                    f"Invalid sequence at line {idx}: two consecutive '{type}' entries"
+                )
+
             entries.append(Entry(type=type, timestamp=timestamp))
             prev_ts = timestamp
+            prev_type = type
     return entries

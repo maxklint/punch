@@ -56,18 +56,11 @@ def undo_last_entry(path):
 
 
 def validate_timesheet(path):
-    all_entries = timesheet.load_timesheet(path)
-    expected_type = "in"
-    for entry in all_entries:
-        if entry.type != expected_type:
-            print(
-                "Error in entry {}: expected type '{}', got '{}'".format(
-                    entry.timestamp, expected_type, entry.type
-                )
-            )
-            return
-        expected_type = "out" if expected_type == "in" else "in"
-    print("No errors")
+    try:
+        timesheet.load_timesheet(path)
+        print("No errors")
+    except ValueError as e:
+        print(str(e))
 
 
 def open_timesheet_in_editor(path):
@@ -229,4 +222,8 @@ def import_entries_from_json(path, input_path):
                 f"{entry.timestamp.strftime(config.TIMESTAMP_FORMAT)} {entry.type}\n"
             )
 
-    validate_timesheet(path)
+    try:
+        entries = timesheet.load_timesheet(path)
+        print(f"Successfully imported {len(entries)} entries")
+    except ValueError as e:
+        print(str(e))
