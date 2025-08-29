@@ -9,7 +9,7 @@ class Entry:
     timestamp: datetime.datetime
 
 
-def load_timesheet(path):
+def load_timesheet(path) -> list[Entry]:
     entries = []
     with open(path, "r") as timesheet:
         lines = timesheet.readlines()

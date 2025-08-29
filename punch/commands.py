@@ -7,20 +7,23 @@ from . import config, graph, timesheet, utils
 
 def print_overview(path):
     all_entries = timesheet.load_timesheet(path)
-    todays_entries = utils.filter_todays_entries(all_entries)
-    intervals = utils.entries_to_intervals(todays_entries)
-    durations = utils.intervals_to_durations(intervals)
-    seconds_worked = sum(durations, 0)
+    intervals = utils.entries_to_intervals(all_entries)
+    todays_intervals = utils.filter_intervals(intervals, utils.start_of_today())
+    seconds_worked = 0
+    for interval in todays_intervals:
+        if interval.duration is not None:
+            seconds_worked += interval.duration.seconds
+        else:
+            seconds_worked += (datetime.datetime.now() - interval.timestamp).seconds
     hours, minutes = utils.seconds_to_hours_and_minutes(seconds_worked)
-    seconds_left = config.WORKDAY_SECONDS - seconds_worked
-    end_of_day = datetime.datetime.now() + datetime.timedelta(seconds=seconds_left)
 
     print()
-    for entry in todays_entries:
-        print("{0:5s} {1}".format(entry.type, entry.timestamp.strftime("%Hh%M")))
+    for interval in todays_intervals:
+        print(f"in    {interval.timestamp.strftime('%Hh%M')}")
+        if interval.duration is not None:
+            print(f"out   {(interval.timestamp + interval.duration).strftime('%Hh%M')}")
     print()
     print("Worked today:     {0:.0f} hours {1:.0f} minutes".format(hours, minutes))
-    print("End of work day:  {0}".format(end_of_day.strftime("%Hh%M")))
     print()
 
 
@@ -74,6 +77,11 @@ def print_hourly_histogram(path):
         print("No data available")
         return
     intervals = utils.entries_to_intervals(all_entries)
+    if intervals[-1].duration is None:
+        intervals[-1] = utils.Interval(
+            timestamp=intervals[-1].timestamp,
+            duration=datetime.datetime.now() - intervals[-1].timestamp,
+        )
     slices = utils.slice_intervals_by_hour(intervals)
     hourly_history = utils.consolidate_slices_by_hour(slices)
     daily_history = utils.consolidate_slices_by_day(hourly_history)
@@ -96,9 +104,14 @@ def print_daily_histogram(path):
         print("No data available")
         return
     intervals = utils.entries_to_intervals(all_entries)
+    if intervals[-1].duration is None:
+        intervals[-1] = utils.Interval(
+            timestamp=intervals[-1].timestamp,
+            duration=datetime.datetime.now() - intervals[-1].timestamp,
+        )
     slices = utils.slice_intervals_by_hour(intervals)
     daily_history = utils.consolidate_slices_by_day(slices)
-    if daily_history[-1][0].date() == datetime.datetime.now().date():
+    if daily_history[-1].timestamp.date() == datetime.datetime.now().date():
         daily_history.pop()  # discard today's data as incomplete
     daily_histogram = utils.group_slices_by_weekday(daily_history)
     daily_histogram_norm = [
@@ -123,13 +136,18 @@ def print_recent_history(path):
         print("No data available")
         return
     intervals = utils.entries_to_intervals(all_entries)
+    if intervals[-1].duration is None:
+        intervals[-1] = utils.Interval(
+            timestamp=intervals[-1].timestamp,
+            duration=datetime.datetime.now() - intervals[-1].timestamp,
+        )
     slices = utils.slice_intervals_by_hour(intervals)
     history = utils.consolidate_slices_by_day(slices)
     history_start = datetime.datetime.now() - config.DAILY_HISTORY_LENGTH
-    recent_history = utils.filter_entries(history, history_start)
-    values = [(t[1] - t[0]).seconds for t in recent_history]
+    recent_history = utils.filter_intervals(history, history_start)
+    values = [t.duration.seconds for t in recent_history]
     labels = [
-        "{} {:02d}".format(config.WEEKDAYS[t[0].weekday()][:2], t[0].day)
+        "{} {:02d}".format(config.WEEKDAYS[t.timestamp.weekday()][:2], t.timestamp.day)
         for t in recent_history
     ]
     graph_data = graph.render_bargraph(
@@ -144,10 +162,15 @@ def print_history_by_week(path):
         print("No data available")
         return
     intervals = utils.entries_to_intervals(all_entries)
+    if intervals[-1].duration is None:
+        intervals[-1] = utils.Interval(
+            timestamp=intervals[-1].timestamp,
+            duration=datetime.datetime.now() - intervals[-1].timestamp,
+        )
     slices = utils.slice_intervals_by_hour(intervals)
     history = utils.consolidate_slices_by_day(slices)
     history_start = datetime.datetime.now() - config.WEEKLY_HISTORY_LENGTH
-    recent_history = utils.filter_entries(history, history_start)
+    recent_history = utils.filter_intervals(history, history_start)
     weekly = utils.group_slices_by_week(recent_history)
     weekly_time = [time for time, _ in weekly.values()]
     weekly_labels = [
@@ -165,10 +188,15 @@ def print_total_hours_for_period(path, history_start, history_end):
         print("No data available")
         return
     intervals = utils.entries_to_intervals(all_entries)
+    if intervals[-1].duration is None:
+        intervals[-1] = utils.Interval(
+            timestamp=intervals[-1].timestamp,
+            duration=datetime.datetime.now() - intervals[-1].timestamp,
+        )
     slices = utils.slice_intervals_by_hour(intervals)
     history = utils.consolidate_slices_by_day(slices)
-    selected_history = utils.filter_entries(history, history_start, history_end)
-    values = [(t[1] - t[0]).seconds for t in selected_history]
+    selected_history = utils.filter_intervals(history, history_start, history_end)
+    values = [t.duration.seconds for t in selected_history]
     print("{}h".format(round(sum(values) / 3600.0)))
 
 

@@ -1,9 +1,34 @@
 import datetime
+from dataclasses import dataclass
 import math
-from . import config
+from . import config, timesheet
 
 
-def filter_todays_entries(entries):
+@dataclass(frozen=True)
+class Interval:
+    timestamp: datetime.datetime
+    duration: datetime.timedelta
+
+
+def entries_to_intervals(entries: list[timesheet.Entry]) -> list[Interval]:
+    intervals = []
+    timestamp = None
+    for entry in entries:
+        if entry.type == "in":
+            timestamp = entry.timestamp
+        elif entry.type == "out":
+            if timestamp is None:
+                raise ValueError("Mismatched 'out' entry without preceding 'in'")
+            intervals.append(
+                Interval(timestamp=timestamp, duration=entry.timestamp - timestamp)
+            )
+            timestamp = None
+    if timestamp is not None:
+        intervals.append(Interval(timestamp=timestamp, duration=None))
+    return intervals
+
+
+def start_of_today() -> datetime.datetime:
     now = datetime.datetime.now()
     start = datetime.datetime(
         now.year,
@@ -14,131 +39,110 @@ def filter_todays_entries(entries):
     )
     if now.time() < config.WORKDAY_START_TIME:
         start -= datetime.timedelta(hours=24)
-    end = start + datetime.timedelta(hours=24)
-    return filter_entries(entries, start, end)
+    return start
 
 
-def filter_entries(entries, after, before=None):
+def filter_intervals(intervals: list[Interval], after: datetime.datetime, before: datetime.datetime = None) -> list[Interval]:
     if before is None:
         before = datetime.datetime.now()
     return [
-        entry
-        for entry in entries
-        if entry.timestamp > after and entry.timestamp < before
+        interval
+        for interval in intervals
+        if interval.timestamp >= after and interval.timestamp <= before
     ]
 
 
-def entries_to_intervals(entries):
-    starts = []
-    ends = []
-    start = None
-    for entry in entries:
-        if entry.type == "in":
-            if not start:
-                start = entry.timestamp
-                starts.append(start)
-        elif entry.type == "out":
-            if start:
-                ends.append(entry.timestamp)
-                start = None
-    if start:
-        ends.append(datetime.datetime.now())
-    return zip(starts, ends)
-
-
-def intervals_to_durations(intervals):
-    durations = []
-    for interval in intervals:
-        durations.append((interval[1] - interval[0]).seconds)
-    return durations
-
-
-def seconds_to_hours_and_minutes(seconds):
+def seconds_to_hours_and_minutes(seconds: int) -> tuple[int, int]:
     hours = math.floor(seconds / 3600)
     minutes = math.floor((seconds / 60) % 60)
     return (hours, minutes)
 
 
-def slice_interval_by_hour(interval):
+def slice_interval_by_hour(interval: Interval) -> list[Interval]:
     slices = []
-    start, end = interval
-    ref = datetime.datetime(start.year, start.month, start.day, start.hour)
-    while ref < end:
-        remaining = min((end - ref).seconds, 3600)
-        if ref < start:
-            remaining -= (start - ref).seconds
-        slices.append((ref, ref + datetime.timedelta(seconds=remaining)))
+    ref = datetime.datetime(
+        interval.timestamp.year,
+        interval.timestamp.month,
+        interval.timestamp.day,
+        interval.timestamp.hour,
+    )
+    while ref < interval.timestamp + interval.duration:
+        remaining = min(((interval.timestamp + interval.duration) - ref).seconds, 3600)
+        if ref < interval.timestamp:
+            remaining -= (interval.timestamp - ref).seconds
+        slices.append(
+            Interval(timestamp=ref, duration=datetime.timedelta(seconds=remaining))
+        )
         ref += datetime.timedelta(hours=1)
     return slices
 
 
-def slice_intervals_by_hour(intervals):
+def slice_intervals_by_hour(intervals: list[Interval]) -> list[Interval]:
     slices = []
     for interval in intervals:
         slices.extend(slice_interval_by_hour(interval))
     return slices
 
 
-def consolidate_slices_by_hour(slices):
+def consolidate_slices_by_hour(slices: list[Interval]) -> list[Interval]:
     slicemap = {}
     for slice in slices:
-        start, end = slice
-        ref = start.replace(minute=0, second=0, microsecond=0)
-        slicemap[ref] = slicemap.get(ref, 0) + (end - start).seconds
+        ref = slice.timestamp.replace(minute=0, second=0, microsecond=0)
+        slicemap[ref] = slicemap.get(ref, 0) + slice.duration.seconds
     consolidated = []
     for ref, duration in slicemap.items():
-        consolidated.append((ref, ref + datetime.timedelta(seconds=duration)))
+        consolidated.append(
+            Interval(timestamp=ref, duration=datetime.timedelta(seconds=duration))
+        )
     return consolidated
 
 
-def consolidate_slices_by_day(slices):
+def consolidate_slices_by_day(slices: list[Interval]) -> list[Interval]:
     slicemap = {}
     for slice in slices:
-        start, end = slice
-        ref = start.replace(
+        ref = slice.timestamp.replace(
             hour=config.WORKDAY_START_TIME.hour,
             minute=config.WORKDAY_START_TIME.minute,
             second=0,
             microsecond=0,
         )
-        if start.time() < config.WORKDAY_START_TIME:
+        if slice.timestamp.time() < config.WORKDAY_START_TIME:
             ref -= datetime.timedelta(hours=24)
-        slicemap[ref] = slicemap.get(ref, 0) + (end - start).seconds
+        slicemap[ref] = slicemap.get(ref, 0) + slice.duration.seconds
     consolidated = []
     for ref, duration in slicemap.items():
-        consolidated.append((ref, ref + datetime.timedelta(seconds=duration)))
+        consolidated.append(
+            Interval(timestamp=ref, duration=datetime.timedelta(seconds=duration))
+        )
     return consolidated
 
 
-def group_slices_by_hour(slices):
+def group_slices_by_hour(slices: list[Interval]) -> list[list[int]]:
     hours = [[] for i in range(24)]
     for slice in slices:
-        start, end = slice
-        hour = start.hour
-        hours[hour].append((end - start).seconds)
+        hour = slice.timestamp.hour
+        hours[hour].append(slice.duration.seconds)
     return hours
 
 
-def group_slices_by_weekday(slices):
+def group_slices_by_weekday(slices: list[Interval]) -> list[list[int]]:
     days = [[] for i in range(7)]
     for slice in slices:
-        start, end = slice
-        day = start.weekday()
-        time = start.time()
+        day = slice.timestamp.weekday()
+        time = slice.timestamp.time()
         if time < config.WORKDAY_START_TIME:
             day = 6 if day == 0 else day - 1
-        days[day].append((end - start).seconds)
+        days[day].append(slice.duration.seconds)
     return days
 
 
-def group_slices_by_week(slices):
+def group_slices_by_week(slices: list[Interval]) -> dict[int, tuple[int, set[int]]]:
     weekmap = {}
     for slice in slices:
-        start, end = slice
-        week = start.isocalendar()[1]
+        week = slice.timestamp.isocalendar()[1]
         value = weekmap.get(week, (0, set()))
-        value = (value[0] + (end - start).seconds, value[1])
-        if start.weekday() < 5:
-            value[1].add(start.weekday())
+        value = (value[0] + slice.duration.seconds, value[1])
+        if slice.timestamp.weekday() < 5:
+            value[1].add(slice.timestamp.weekday())
         weekmap[week] = value
     return weekmap
