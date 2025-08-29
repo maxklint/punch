@@ -21,7 +21,11 @@ def filter_todays_entries(entries):
 def filter_entries(entries, after, before=None):
     if before is None:
         before = datetime.datetime.now()
-    return [entry for entry in entries if entry[1] > after and entry[1] < before]
+    return [
+        entry
+        for entry in entries
+        if entry.timestamp > after and entry.timestamp < before
+    ]
 
 
 def entries_to_intervals(entries):
@@ -29,13 +33,13 @@ def entries_to_intervals(entries):
     ends = []
     start = None
     for entry in entries:
-        if entry[0] == "in":
+        if entry.type == "in":
             if not start:
-                start = entry[1]
+                start = entry.timestamp
                 starts.append(start)
-        elif entry[0] == "out":
+        elif entry.type == "out":
             if start:
-                ends.append(entry[1])
+                ends.append(entry.timestamp)
                 start = None
     if start:
         ends.append(datetime.datetime.now())

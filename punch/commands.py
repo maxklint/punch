@@ -17,7 +17,7 @@ def print_overview(path):
 
     print()
     for entry in todays_entries:
-        print("{0:5s} {1}".format(entry[0], entry[1].strftime("%Hh%M")))
+        print("{0:5s} {1}".format(entry.type, entry.timestamp.strftime("%Hh%M")))
     print()
     print("Worked today:     {0:.0f} hours {1:.0f} minutes".format(hours, minutes))
     print("End of work day:  {0}".format(end_of_day.strftime("%Hh%M")))
@@ -27,11 +27,12 @@ def print_overview(path):
 def new_entry(path, timestamp, type):
     all_entries = timesheet.load_timesheet(path)
     if len(all_entries) > 0:
-        last_type, last_timestamp = all_entries[-1]
-        if last_type == type:
+        last_entry = all_entries[-1]
+        if last_entry.type == type:
             print(
                 "Error: last entry was '{}' at {}".format(
-                    last_type, last_timestamp.strftime(config.TIMESTAMP_FORMAT)
+                    last_entry.type,
+                    last_entry.timestamp.strftime(config.TIMESTAMP_FORMAT),
                 )
             )
             return
@@ -47,7 +48,8 @@ def undo_last_entry(path):
             for entry in all_entries:
                 print(
                     "{} {}".format(
-                        entry[1].strftime(config.TIMESTAMP_FORMAT), entry[0]
+                        entry.timestamp.strftime(config.TIMESTAMP_FORMAT),
+                        entry.type,
                     ),
                     file=ofile,
                 )
@@ -56,11 +58,11 @@ def undo_last_entry(path):
 def validate_timesheet(path):
     all_entries = timesheet.load_timesheet(path)
     expected_type = "in"
-    for type, timestamp in all_entries:
-        if type != expected_type:
+    for entry in all_entries:
+        if entry.type != expected_type:
             print(
                 "Error in entry {}: expected type '{}', got '{}'".format(
-                    timestamp, expected_type, type
+                    entry.timestamp, expected_type, entry.type
                 )
             )
             return
@@ -183,8 +185,11 @@ def export_entries_to_json(path, output_path):
         return
     entries = timesheet.load_timesheet(path)
     data = [
-        {"timestamp": timestamp.strftime(config.TIMESTAMP_FORMAT), "type": type}
-        for type, timestamp in entries
+        {
+            "timestamp": entry.timestamp.strftime(config.TIMESTAMP_FORMAT),
+            "type": entry.type,
+        }
+        for entry in entries
     ]
     with open(output_path, "w") as ofile:
         json.dump(data, ofile, indent=2)
@@ -216,10 +221,12 @@ def import_entries_from_json(path, input_path):
         if item["type"] not in ("in", "out"):
             print(f"Error: invalid type '{item['type']}'")
             return
-        entries.append((item["type"], timestamp))
+        entries.append(timesheet.Entry(type=item["type"], timestamp=timestamp))
 
     with open(path, "w") as outfile:
-        for type, timestamp in entries:
-            outfile.write(f"{timestamp.strftime(config.TIMESTAMP_FORMAT)} {type}\n")
+        for entry in entries:
+            outfile.write(
+                f"{entry.timestamp.strftime(config.TIMESTAMP_FORMAT)} {entry.type}\n"
+            )
 
     validate_timesheet(path)

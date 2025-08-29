@@ -1,5 +1,12 @@
 import datetime
+from dataclasses import dataclass
 from . import config
+
+
+@dataclass(frozen=True)
+class Entry:
+    type: str
+    timestamp: datetime.datetime
 
 
 def load_timesheet(path):
@@ -24,5 +31,5 @@ def load_timesheet(path):
             except Exception:
                 continue
 
-            entries.append((type, timestamp))
+            entries.append(Entry(type=type, timestamp=timestamp))
     return entries
