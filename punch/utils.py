@@ -42,7 +42,17 @@ def start_of_today() -> datetime.datetime:
     return start
 
 
-def filter_intervals(intervals: list[Interval], after: datetime.datetime, before: datetime.datetime = None) -> list[Interval]:
+def start_of_week() -> datetime.datetime:
+    start = start_of_today()
+    start -= datetime.timedelta(days=start.weekday())
+    return start
+
+
+def filter_intervals(
+    intervals: list[Interval],
+    after: datetime.datetime,
+    before: datetime.datetime = None,
+) -> list[Interval]:
     if before is None:
         before = datetime.datetime.now()
     return [

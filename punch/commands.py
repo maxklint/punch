@@ -9,13 +9,24 @@ def print_overview(path):
     all_entries = timesheet.load_timesheet(path)
     intervals = utils.entries_to_intervals(all_entries)
     todays_intervals = utils.filter_intervals(intervals, utils.start_of_today())
-    seconds_worked = 0
+    seconds_worked_today = 0
     for interval in todays_intervals:
         if interval.duration is not None:
-            seconds_worked += interval.duration.seconds
+            seconds_worked_today += interval.duration.seconds
         else:
-            seconds_worked += (datetime.datetime.now() - interval.timestamp).seconds
-    hours, minutes = utils.seconds_to_hours_and_minutes(seconds_worked)
+            seconds_worked_today += (
+                datetime.datetime.now() - interval.timestamp
+            ).seconds
+
+    weeks_intervals = utils.filter_intervals(intervals, utils.start_of_week())
+    seconds_worked_this_week = 0
+    for interval in weeks_intervals:
+        if interval.duration is not None:
+            seconds_worked_this_week += interval.duration.seconds
+        else:
+            seconds_worked_this_week += (
+                datetime.datetime.now() - interval.timestamp
+            ).seconds
 
     print()
     for interval in todays_intervals:
@@ -23,7 +34,16 @@ def print_overview(path):
         if interval.duration is not None:
             print(f"out   {(interval.timestamp + interval.duration).strftime('%Hh%M')}")
     print()
-    print("Worked today:     {0:.0f} hours {1:.0f} minutes".format(hours, minutes))
+    print(
+        "Worked today:     {0:.0f} hours {1:.0f} minutes".format(
+            *utils.seconds_to_hours_and_minutes(seconds_worked_today)
+        )
+    )
+    print(
+        "Worked this week: {0:.0f} hours {1:.0f} minutes".format(
+            *utils.seconds_to_hours_and_minutes(seconds_worked_this_week)
+        )
+    )
     print()
 
 
