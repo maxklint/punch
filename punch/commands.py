@@ -10,13 +10,18 @@ def print_overview(path):
     intervals = utils.entries_to_intervals(all_entries)
     todays_intervals = utils.filter_intervals(intervals, utils.start_of_today())
     seconds_worked_today = 0
+    seconds_not_worked_today = 0
+    prev_end = None
     for interval in todays_intervals:
-        if interval.duration is not None:
-            seconds_worked_today += interval.duration.seconds
-        else:
-            seconds_worked_today += (
-                datetime.datetime.now() - interval.timestamp
-            ).seconds
+        end = (
+            interval.timestamp + interval.duration
+            if interval.duration
+            else datetime.datetime.now()
+        )
+        seconds_worked_today += (end - interval.timestamp).seconds
+        if prev_end is not None:
+            seconds_not_worked_today += (interval.timestamp - prev_end).seconds
+        prev_end = end
 
     weeks_intervals = utils.filter_intervals(intervals, utils.start_of_week())
     seconds_worked_this_week = 0
@@ -39,6 +44,14 @@ def print_overview(path):
             *utils.seconds_to_hours_and_minutes(seconds_worked_today)
         )
     )
+    print(
+        "Total break time: {0:.0f} hours {1:.0f} minutes ({2} break{3})".format(
+            *utils.seconds_to_hours_and_minutes(seconds_not_worked_today),
+            len(todays_intervals) - 1,
+            "" if len(todays_intervals) - 1 == 1 else "s",
+        )
+    )
+    print()
     print(
         "Worked this week: {0:.0f} hours {1:.0f} minutes".format(
             *utils.seconds_to_hours_and_minutes(seconds_worked_this_week)
