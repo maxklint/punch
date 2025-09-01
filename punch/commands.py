@@ -23,6 +23,8 @@ def print_overview(path):
             seconds_not_worked_today += (interval.timestamp - prev_end).seconds
         prev_end = end
 
+    todays_breaks = max(0, len(todays_intervals) - 1)
+
     weeks_intervals = utils.filter_intervals(intervals, utils.start_of_week())
     seconds_worked_this_week = 0
     for interval in weeks_intervals:
@@ -47,8 +49,8 @@ def print_overview(path):
     print(
         "Total break time: {0:.0f} hours {1:.0f} minutes ({2} break{3})".format(
             *utils.seconds_to_hours_and_minutes(seconds_not_worked_today),
-            len(todays_intervals) - 1,
-            "" if len(todays_intervals) - 1 == 1 else "s",
+            todays_breaks,
+            "" if todays_breaks == 1 else "s",
         )
     )
     print()
